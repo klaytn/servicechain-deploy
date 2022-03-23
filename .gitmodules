@@ -3,4 +3,7 @@
 	url = https://github.com/klaytn/klaytn-terraform.git
 [submodule "klaytn-ansible"]
 	path = klaytn-ansible
-	url = https://github.com/2dvorak/klaytn-ansible.git
+	url = https://github.com/klaytn/klaytn-ansible.git
+[submodule "value-transfer"]
+	path = value-transfer
+	url = https://github.com/klaytn/servicechain-value-transfer-examples.git
