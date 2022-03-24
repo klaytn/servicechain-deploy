@@ -25,7 +25,7 @@ Using this tool without modification in production is discorouged.
 ### Modules
 1. klaytn-terraform
 
-   The [klaytn-terraform](./klaytn-terraform) module runs `terraform` to deploy new VMs.
+   The [klaytn-terraform](https://github.com/klaytn/klaytn-terraform) module runs `terraform` to deploy new VMs.
    Currently supported cloud platform for ServiceChain deploy tool is AWS,
    however **klaytn-terraform** supports Azure.
    To configure a new Endpoint Node (EN) for the Klaytn mainnet(Cypress)/testnet(Baobab),
@@ -39,7 +39,7 @@ Using this tool without modification in production is discorouged.
 
 2. klaytn-ansible
 
-   The [klaytn-ansible](/klaytn-ansible) module runs `ansible` to install and configure
+   The [klaytn-ansible](https://github.com/klaytn/klaytn-ansible) module runs `ansible` to install and configure
    Klaytn nodes in the newly deployed VMs.
    The **klaytn-ansible** has two roles:
    - `klaytn_node`:
@@ -57,7 +57,7 @@ Using this tool without modification in production is discorouged.
 
 3. value-transfer
 
-   The [value-transfer](/value-transfer) module runs example scripts to test
+   The [value-transfer](https://github.com/klaytn/servicechain-value-transfer-examples) module runs example scripts to test
    value transfer between two chains. It provides examples of value transfer for the following assets:
    - Klay
    - ERC20
