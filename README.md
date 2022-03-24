@@ -25,7 +25,7 @@ Using this tool without modification in production is discorouged.
 ### Modules
 1. klaytn-terraform
 
-   The [klaytn-terraform](/klaytn-terraform) module runs `terraform` to deploy new VMs.
+   The [klaytn-terraform](./klaytn-terraform) module runs `terraform` to deploy new VMs.
    Currently supported cloud platform for ServiceChain deploy tool is AWS,
    however **klaytn-terraform** supports Azure.
    To configure a new Endpoint Node (EN) for the Klaytn mainnet(Cypress)/testnet(Baobab),
