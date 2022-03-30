@@ -20,7 +20,7 @@ You do not have to repeat same jobs or copy files manually,
 instead you can use provided scripts.
 
 **IMPORTANT** This tool is for test purpose.
-Using this tool without modification in production is discorouged.
+Using this tool without modification in production is strongly discorouged.
 
 ### Modules
 1. klaytn-terraform
@@ -120,13 +120,16 @@ without using `0.prepare.sh`.
     For example, specify the number of ENs and SCNs to be created.
 
 ## Run
-Use provided scripts to run **klaytn-terraform**, **klaytn-ansible**, then test value transfer examples.
+Use provided scripts to run **klaytn-terraform** and **klaytn-ansible**.
 
 Currently supported cases are:
 - `run-en-4scn.sh`: Join Baobab testnet (deploy new EN) and deploy ServiceChain (4 SCNs)
 - `TBU`: Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs)
 - `TBU`: Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs, 4 SPNs, 4 SENs)
 - `TBU`: Deploy ServiceChain (4 SCNs) and bridge to an existing node (on either Baobab or ServiceChain)
+
+After you have successfully deployed and configured Klaytn and ServiceChain, you can test value transfer
+using the provided script `test_value_transfer.sh`. See [Test value transfer](#test-value-transfer).
 
 ### Prerequisite - Prepare `terraform.tfvars`
 
@@ -201,8 +204,27 @@ The script performs the following tasks:
 3. Run **klaytn-ansible** with `klaytn_node` role
 4. Wait until the newly created EN sync is done.
 5. Run **klaytn-ansible** with `klaytn_bridge` role
-6. Prompt the user to deposit enough Klay to associated accounts to test value transfer
-7. Run **value-transfer** to test value transfer for ERC20 tokens.
+
+
+### Case B. Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs)
+TBD
+### Case C. Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs, 4 SPNs, 4 SENs)
+TBD
+### Case D. Deploy ServiceChain (4 SCNs) and bridge to an existing node (on either Baobab or ServiceChain)
+TBD
+
+### Test value transfer
+
+After you have successfully deployed and configured Klaytn and ServiceChain using the provided script,
+you can test value transfer with the script `test_value_transfer.sh`.
+
+```
+$ ./test_value_transfer.sh
+```
+The script performs the following actions:
+1. Prompt the user to deposit enough Klay to associated accounts to test value transfer
+2. Deploy ERC20 token and associated token bridge(s) using **value-transfer**.
+3. Transfer ERC20 between parent and child chains using **value-transfer**.
 
 If everything went well, you should be able to see alice's balance
 being increased in the value transfer test like below:
@@ -213,19 +235,7 @@ alice balance: 0
 requestValueTransfer..
 alice balance: 100
 ------------------------- erc20-transfer-1step END -------------------------
-------------------------- erc20-transfer-2step START -------------------------
-alice balance: 100
-requestValueTransfer..
-alice balance: 200
-------------------------- erc20-transfer-2step END -------------------------
 ```
-
-### Case B. Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs)
-TBD
-### Case C. Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs, 4 SPNs, 4 SENs)
-TBD
-### Case D. Deploy ServiceChain (4 SCNs) and bridge to an existing node (on either Baobab or ServiceChain)
-TBD
 
 ## Terminate
 
@@ -233,7 +243,7 @@ After you have successfully deployed and tested Klaytn ServiceChain,
 you can destroy all created resources using the provided script.
 
 ```
-$ ./5.terminate.sh
+$ ./4.terminate.sh
 
 ...
 
