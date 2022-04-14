@@ -94,8 +94,15 @@ Using this tool without modification in production is discorouged.
     If you are already using a different version of Node.js, use the Node Version Manager ([NVM](https://github.com/nvm-sh/nvm))
     to install a Node.js with the version supported by caver-js along with the existing Node.js.
 
+5. `jq`, `curl`, `tr`
+    These binaries are commonly installed in most systems, however if your host does not have one, please install required package.
+
 ## Configure
 Before running **klaytn-terraform**, you need to configure it.
+You can use `0.prepare.sh` to configure with default settings.
+
+These are the actions performed by `0.prepare.sh` and what you need to do if you want to configure on your own,
+without using `0.prepare.sh`.
 
 1. Create AWS VPC and subnets
 
@@ -124,6 +131,9 @@ Currently supported cases are:
 ### Prerequisite - Prepare `terraform.tfvars`
 
 Create `terraform.tfvars` under the directory `klaytn-terraform/service-chain-aws/deploy-4scn`.
+It can be done by running provided script `0.prepare.sh` or you can do it on your own.
+If you are not sure, you can just run `0.prepare.sh` and skip this "prerequisite" step.
+
 Below is an example configuration for `terraform.tfvars`.
 You should fill in empty contents to fit your setup.
 

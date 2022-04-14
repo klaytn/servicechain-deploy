@@ -10,8 +10,8 @@ then
 	exit 1
 fi
 
-# Run terraform
-./1.run_terraform.sh
+# Run terraform to initialize new VMs for nodes
+./1.init_nodes.sh
 
 # Run ansible klaytn_node
 ./2.setup_nodes.sh
