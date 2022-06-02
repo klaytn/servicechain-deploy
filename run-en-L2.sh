@@ -4,17 +4,18 @@ PROJ_PATH=$(pwd)
 set -e
 
 # Prepare terraform.tfvars
-./0.prepare.sh en-4scn
+#./0.prepare.sh en-L2
 
 # Run terraform to initialize new VMs for nodes
-./1.init_nodes.sh en-4scn
+./1.init_nodes.sh en-L2
 
 # Run ansible klaytn_node
 ./2.setup_nodes.sh
 
 # Wait until EN sync finished
 echo "The newly deployed EN node should be synced to latest block. This could take about 30~40 minutes, up to few hours."
-pushd klaytn-terraform/service-chain-aws/deploy-4scn
+sleep 30
+pushd klaytn-terraform/service-chain-aws/deploy-scn-spn-sen
 EN_PUBLIC_IP_LIST=($(terraform show -json | jq -r '.values.root_module.resources[] | select(.address | startswith("aws_eip_association.en")) | .values.public_ip'))
 EN_IP=${EN_PUBLIC_IP_LIST[0]}
 popd
