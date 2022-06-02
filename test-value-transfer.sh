@@ -41,6 +41,16 @@ echo "          parent.key: $PARENT_KEY"
 echo -e "          address derived from parent.key: $PARENT_SENDER \(100 Klay would be enough\)\n"
 echo "######################################################################"
 
+send_klay() {
+	RPC_IP=$1
+	SERVICE_TYPE=$2
+	TO_ADDRESS=$3
+	NODEKEY=$(ssh -i ~/.ssh/servicechain-deploy-key centos@$RPC_IP "cat /var/${SERVICE_TYPE}d/data/klay/nodekey")
+	ssh -i ~/.ssh/servicechain-deploy-key -q centos@$RPC_IP "sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.importRawKey('$NODEKEY', '')\"; \
+		sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.unlockAccount(personal.listAccounts[0], '', 99999999)\"; \
+		sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.sendValueTransfer({from: personal.listAccounts[0], to: '$TO_ADDRESS', value: klay.toPeb(1000, 'KLAY')})\""
+}
+
 # Prompt the user to deposit some klay to parent bridge operator and parent sender
 for ((i=0;i<$BRIDGE_COUNT;i++)); do
 	## First, parent bridge operator
@@ -51,7 +61,8 @@ for ((i=0;i<$BRIDGE_COUNT;i++)); do
 			if [[ $PARENT_USERNAME == "ec2-user" ]]; then
 				echo "Please send 10 Klay to \"${PARENT_OPERATORS[$i]}\" using Baobab faucet (https://baobab.wallet.klaytn.com/access?next=faucet)"
 			else
-				echo "Please send 10 Klay to \"${PARENT_OPERATORS[$i]}\" in the parent chain (probably a private network)"
+				# If parent chain is private network, the gasPrice should be 0 so the operators don't need any KLAY, they can send transactions for free.
+				break
 			fi
 		else
 			break
@@ -67,7 +78,10 @@ do
 		if [[ $PARENT_USERNAME == "ec2-user" ]]; then
 			echo "Please send 100 Klay to \"$PARENT_SENDER\" using Baobab faucet (https://baobab.wallet.klaytn.com/access?next=faucet)"
 		else
-			echo "Please send 100 Klay to \"$PARENT_SENDER\" in the parent chain (probably a private network)"
+			# If parent chain is priavet network, get KLAY from CN's nodekey
+			CN_RPC_IP=$(egrep '^CN0' $PROJ_PATH/inventory.node | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+			send_klay $CN_RPC_IP kcn $PARENT_SENDER
+			continue
 		fi
 	else
 		break
@@ -84,16 +98,11 @@ echo -e "          address derived from child.key: $CHILD_SENDER \(100 Klay woul
 echo "######################################################################"
 
 # Prompt the user to deposit some klay to child sender
-while :
-do
-	CHILD_SENDER_BALANCE=$(ssh -i ~/.ssh/servicechain-deploy-key $CHILD_USERNAME@$CHILD_RPC_IP "sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"klay.getBalance('$CHILD_SENDER')\"")
-	if [[ $CHILD_SENDER_BALANCE == "0" ]]; then
-		echo "Please send 100 Klay to \"$CHILD_SENDER\" in the ServiceChain"
-	else
-		break
-	fi
-	read -p "Hit <enter> to continue: " USER_INPUT
-done
+CHILD_SENDER_BALANCE=$(ssh -i ~/.ssh/servicechain-deploy-key $CHILD_USERNAME@$CHILD_RPC_IP "sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"klay.getBalance('$CHILD_SENDER')\"")
+if [[ $CHILD_SENDER_BALANCE == "0" ]]; then
+	SCN_RPC_IP=$(egrep '^SCN0' $PROJ_PATH/inventory.node | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+	send_klay $SCN_RPC_IP kscn $CHILD_SENDER
+fi
 
 # Test value transfer
 ## First, install dependencies
