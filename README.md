@@ -9,6 +9,7 @@ Also, to test value transfer between chains, this repository uses [servicechain-
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
+- [Getting Started](#gettingstarted)
 - [Configure](#configure)
 - [Run](#run)
 - [Terminate](#terminate)
@@ -27,11 +28,11 @@ Using this tool without modification in production is strongly discorouged.
 
    The [klaytn-terraform](https://github.com/klaytn/klaytn-terraform) module runs `terraform` to deploy new VMs.
    Currently supported cloud platform for ServiceChain deploy tool is AWS,
-   however **klaytn-terraform** supports Azure.
+   however **klaytn-terraform** supports Azure, too.
    To configure a new Endpoint Node (EN) for the Klaytn mainnet(Cypress)/testnet(Baobab),
-   **klaytn-ansible** uses belowe AMIs.
-   - AWS AMI for Cypress EN: TBU
-   - AWS AMI for Baobab EN: TBU
+   **klaytn-terraform** uses below AMIs.
+   - AWS AMI for Cypress EN: `baobab-clean-en-ami-<date created>`
+   - AWS AMI for Baobab EN: `cypress-clean-en-ami-<date created>`
 
    The provided script `1.run_terraform.sh` performs following tasks:
    - Run **klaytn-terraform** to deploy VMs in AWS
@@ -69,11 +70,13 @@ Using this tool without modification in production is strongly discorouged.
    (e.g., bridge operators) hold enough Klays.
 
 ## Prerequisites
-1. AWS account and AWS-CLI
+1. AWS account and AWS-CLI, and subscription for CentOS AMI
 
     You need an AWS account. Also, AWS-CLI should be configured correctly in your local environment.
     Refer to AWS docs to [install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
     and [configure](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) AWS-CLI.
+    Furthermore, you need to subscribe [CentOS AMI](https://aws.amazon.com/marketplace/pp/Centosorg-CentOS-7-x8664-with-Updates-HVM/B00O7WM7QW#pdp-usage)
+    in order to create CentOS VMs.
 
 2. terraform
 
@@ -94,8 +97,12 @@ Using this tool without modification in production is strongly discorouged.
     If you are already using a different version of Node.js, use the Node Version Manager ([NVM](https://github.com/nvm-sh/nvm))
     to install a Node.js with the version supported by caver-js along with the existing Node.js.
 
-5. `jq`, `curl`, `tr`
+5. `jq`, `curl`, `tr`, `sed`
     These binaries are commonly installed in most systems, however if your host does not have one, please install required package.
+
+## Getting Started
+TBU
+Probably the most simple architecture would be 1 SCN + 4 SCN.
 
 ## Configure
 Before running **klaytn-terraform**, you need to configure it.
@@ -124,68 +131,22 @@ Use provided scripts to run **klaytn-terraform** and **klaytn-ansible**.
 
 Currently supported cases are:
 - `run-en-4scn.sh`: Join Baobab testnet (deploy new EN) and deploy ServiceChain (4 SCNs)
-- `TBU`: Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs)
-- `TBU`: Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs, 4 SPNs, 4 SENs)
-- `TBU`: Deploy ServiceChain (4 SCNs) and bridge to an existing node (on either Baobab or ServiceChain)
+- `run-en-L2.sh`: Join Baobab testnet (deploy new EN) and deploy ServiceChain (4 SCNs, 2 SPNs, 2 SENs)
+- `run-L1-L2.sh`: Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs, 2 SPNs, 2 SENs)
 
 After you have successfully deployed and configured Klaytn and ServiceChain, you can test value transfer
 using the provided script `test_value_transfer.sh`. See [Test value transfer](#test-value-transfer).
 
-### Prerequisite - Prepare `terraform.tfvars`
-
-Create `terraform.tfvars` under the directory `klaytn-terraform/service-chain-aws/deploy-4scn`.
-It can be done by running provided script `0.prepare.sh` or you can do it on your own.
-If you are not sure, you can just run `0.prepare.sh` and skip this "prerequisite" step.
-
-Below is an example configuration for `terraform.tfvars`.
-You should fill in empty contents to fit your setup.
-
-**IMPORTANT** You should have an existing AWS account and AWS-CLI configured in your local environment.
-Also, you need an existing AWS VPC and subnet. Please create them if you haven't.
-See [configure](#configure) for brief instructions.
-
-```
-$ cat > klaytn-terraform/service-chain-aws/deploy-4scn/terraform.tfvars <<EOF
-# Prefix for the created VMs. e.g., "sawyer-test"
-name = ""
-# The VPC's ID. e.g., "vpc-0123456789abcdef"
-# If you haven't created any VPC, you have to create one.
-vpc_id = ""
-# The region for the pre-configured VPC. e.g., "ap-northeast-2"
-region = ""
-# The subnet ID for ENs, e.g., "subnet-0123456789abcdef"
-# If you haven't created any subnet, you have to create one.
-en_subnet_ids = [""]
-# The subnet ID for SCNs, e.g., "subnet-0123456789abcdef"
-# If you haven't created any subnet, you have to create one.
-scn_subnet_ids = [""]
-# The IP address (should be the public IP address of your host)
-# to allow SSH connections to the created VMs. e.g., "1.2.3.4/32"
-ssh_client_ips = [""]
-# The pubkey for SSH connection, e.g., "ssh-ed25519 AAAA...JB sawyer-ssh-key"
-ssh_pub_key = ""
-# The name for the SSH keypair, e.g., "sawyer-ssh-key"
-aws_key_pair_name = ""
-# The name for newly created security group, e.g., "sawyer-test"
-security_group = ""
-
-# Provide appropriate numbers to fit your need
-scn_instance_count = "4"
-en_instance_count = "1"
-EOF
-```
+### Testing each cases
 
 **IMPORTANT** Make sure to destroy created resources before testing another case.
 
-### Case A. Join Baobab testnet (deploy new EN) and deploy ServiceChain (4 SCNs)
+You can test each cases using provided scripts. The scripts will often require your confirmation on performing some actions.
 
-Make sure you have correctly configured `klaytn-terraform/service-chain-aws/deploy-4scn/terraform.tfvars`
-in the previous step.
-Then, run provided script `run-en-4scn.sh`.
+For example,
 
 ```
 $ ./run-en-4scn.sh
-
 ...
 
 Do you want to perform these actions?
@@ -195,23 +156,14 @@ Do you want to perform these actions?
   Enter a value: yes
 
 ...
-BECOME pass: <your password>
 ```
 
-The script performs the following tasks:
+The scripts perform the following tasks:
 1. Check configuration file for **klaytn-terraform** (`terraform.tfvars`) exists
-2. Run **klaytn-terraform**
-3. Run **klaytn-ansible** with `klaytn_node` role
-4. Wait until the newly created EN sync is done.
-5. Run **klaytn-ansible** with `klaytn_bridge` role
-
-
-### Case B. Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs)
-TBD
-### Case C. Create a private Klaytn network (1 CN, 1 PN, 1 EN) and deploy ServiceChain (4 SCNs, 4 SPNs, 4 SENs)
-TBD
-### Case D. Deploy ServiceChain (4 SCNs) and bridge to an existing node (on either Baobab or ServiceChain)
-TBD
+2. Run **klaytn-terraform** to create new VMs
+3. Run **klaytn-ansible** with `klaytn_node` role to install and configure Klaytn in created VMs
+4. If deployed a new Baobab EN, wait until the chaindata sync is done (e.g., `run-en-4scn.sh`, `run-en-L2.sh`)
+5. Run **klaytn-ansible** with `klaytn_bridge` role to configure bridge
 
 ### Test value transfer
 
