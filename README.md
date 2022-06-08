@@ -9,7 +9,7 @@ Also, to test value transfer between chains, this repository uses [servicechain-
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
-- [Getting Started](#gettingstarted)
+- [Getting Started](#getting-started)
 - [Configure](#configure)
 - [Run](#run)
 - [Terminate](#terminate)
@@ -101,8 +101,304 @@ Using this tool without modification in production is strongly discorouged.
     These binaries are commonly installed in most systems, however if your host does not have one, please install required package.
 
 ## Getting Started
-TBU
-Probably the most simple architecture would be 1 SCN + 4 SCN.
+This section gives you a brief introduction through each steps that servicechain-deploy tool takes.
+For the getting started example, we will deploy a private network (L1, parent chain) comprising of 1 CN + 1 EN and its ServiceChain (L2, child chain) with 4 SCNs.
+
+The getting started example consists of the following steps.
+1. Create VPC, subnet and SSH key
+2. Edit `terraform.tfvars`
+3. Deploy fresh VMs in AWS
+4. Install and configure Klaytn in deployed VMs
+5. Configure bridge between parent and child chains
+6. Test value transfer between chains
+7. Terminate deployed resources
+
+### 1. Create VPC, subnet and SSH key
+
+First, create a VPC and subnet in AWS.
+
+```
+$ cd klaytn-terraform/service-chain-aws/create-vpc
+$ terraform init && terraform apply
+# below command takes you back to the project root
+$ cd ../../..
+```
+
+The IDs of deployed VPC and subnet will be shown. Those IDs will be used in the next step.
+
+Also, create an SSH key.
+
+```
+$ ssh-keygen -b 2048 -t rsa -f ~/.ssh/servicechain-deploy-key -N ""
+$ cat ~/.ssh/servicechain-deploy-key.pub
+ssh-rsa .......
+```
+
+This SSH key will be used for connecting to deployed instances.
+The public key of this SSH key (the content of the file `~/.ssh/servicechain-deploy-key.pub`) is required in the next step.
+
+### 2. Edit `terraform.tfvars`
+
+Then, create or edit `klaytn-terraform/service-chain-aws/deploy-L1-L2/terraform.tfvars` with the following content.
+
+```
+$ vi klaytn-terraform/service-chain-aws/deploy-L1-L2/terraform.tfvars
+name="servicechain-deploy"
+region="ap-northeast-2"
+vpc_id="$VPC_ID"
+cn_subnet_ids = ["$SUBNET_ID"]
+pn_subnet_ids = ["$SUBNET_ID"]
+en_subnet_ids = ["$SUBNET_ID"]
+scn_subnet_ids = ["$SUBNET_ID"]
+spn_subnet_ids = ["$SUBNET_ID"]
+sen_subnet_ids = ["$SUBNET_ID"]
+grafana_subnet_ids = ["$SUBNET_ID"]
+cn_instance_count = "1"
+pn_instance_count = "0"
+en_instance_count = "1"
+scn_instance_count = "1"
+spn_instance_count = "0"
+sen_instance_count = "0"
+grafana_instance_count = "0"
+ssh_client_ips = ["$MY_IP/32"]
+ssh_pub_key = "$SSH_PUBKEY"
+aws_key_pair_name = "servicechain-deploy"
+```
+Please replace `VPC_ID` and `SUBNET_ID` with the IDs printed in the previous step.
+Also, replace `MY_IP` with the IP address of your machine.
+Lastly, replace `SSH_PUBKEY` with the public key of the SSH key created in the previous step.
+
+### 3. Deploy fresh VMs in AWS
+
+Now, you can deploy new VMs for Klaytn nodes in AWS.
+
+```
+$ cd klaytn-terraform/service-chain-aws/deploy-L1-L2
+$ terraform init && terraform apply
+# below command takes you back to the project root
+$ cd ../../..
+```
+
+The IP addresses of deployed VMs will be shown. Those IP addresses will be used in the next step (the public IP, not the priavte IP).
+
+### 4. Install and configure Klaytn in deployed VMs
+
+Then, create or edit `klaytn-ansible/roles/klaytn_node/inventory` with the following content.
+
+```
+$ vi klaytn-ansible/roles/klaytn_node/inventory
+[ServiceChainCN]
+SCN0  ansible_host=10.11.12.13  ansible_user=centos
+SCN1  ansible_host=10.11.12.14  ansible_user=centos
+SCN2  ansible_host=10.11.12.15  ansible_user=centos
+SCN3  ansible_host=10.11.12.16  ansible_user=centos
+
+[CypressCN]
+CN0  ansible_host=1.2.3.4  ansible_user=centos
+
+[CypressEN]
+EN0  ansbile_host=5.6.7.8  ansible_user=centos
+
+[controller]
+builder ansible_host=localhost ansible_connection=local ansible_user=YOUR_USER
+```
+
+Be sure to replace `ansible_host` to the IP addresses of deployed VMs.
+Also, replace `YOUR_USER` with the username of your machine.
+
+Now, run ansible playbook to install and configure Klaytn nodes.
+
+```
+$ cd klaytn-ansible
+$ cp roles/klaytn_node/tutorial/service_chain_SCN_setup.yml .
+$ ansible-playbook -i roles/klaytn_node/inventory service_chain_SCN_setup.yml --key-file ~/.ssh/servicechain-deploy-key
+# below command takes you back to the project root
+$ cd ..
+```
+
+### 5. Configure bridge between parent and child chains
+
+Create or edit `klaytn-ansible/roles/klaytn_bridge/inventory` with the following content.
+
+```
+$ vi klaytn-ansible/roles/klaytn_bridge/inventory
+[ParentBridgeNode]
+PARENT0 ansible_host=1.2.3.4 ansible_user=centos
+
+[ChildBridgeNode]
+CHILD0 ansible_host=5.6.7.8 ansible_user=centos
+
+[controller]
+builder ansible_host=localhost ansible_connection=local ansible_user=YOUR_USER
+```
+
+Be sure to replace `ansible_host` to the IP addresses of deployed VMs.
+Also, replace `YOUR_USER` with the username of your machine.
+
+To configure bridge between parent and child chains, a pair of nodes are required; one from parent and the other from child chain.
+We are currently deploying the parent chain with 1 CN + 1 EN, and its child chain with 4 SCNs.
+So the bridge should be configured by paring the EN and one of the SCNs.
+You can choose any SCN you want; however we will use the first SCN in this example.
+As a result, replace `ansible_host` of the host `PARENT0` with the IP address of the EN,
+and replace `ansible_host` of the host `CHILD0` with the IP address of the first SCN.
+
+Then, run ansible to configure bridge between parent and child chains.
+
+```
+$ cd klaytn-ansible
+$ cp roles/klaytn_bridge/tutorial/bridge_setup.yml .
+$ ansible_playbook -i roles/klaytn_bridge/inventory bridge_setup.yml --key-file ~/.ssh/servicechain-deploy-key
+# below command takes you back to the project root
+$ cd ..
+```
+
+### 6. Test value transfer between two chains
+
+Testing value trasfer requires the following steps.
+1. Get parent and child bridge operators
+2. Create `bridge_info.json`
+3. Deploy and register bridge contracts (and token contracts in some cases)
+4. Test value transfer
+
+#### 6.1 Get parent and child bridge operators
+
+First, SSH to the SCN instance and connect to the Javascript console.
+
+```
+$ ssh centos@10.11.12.13
+[centos@10.5.6.7 ~] $ sudo kscn attach /var/kscnd/data/klay.ipc
+Welcome to the Klaytn JavaScript console!
+
+instance: Klaytn/v1.8.4/linux-amd64/go1.18
+ datadir: /var/kend/data
+ modules: admin:1.0 debug:1.0 eth:1.0 governance:1.0 istanbul:1.0 klay:1.0 mainbridge:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0
+
+> subbridge.parentOperator
+"0xaabbccdd"
+> subbridge.childOperator
+"0xaaccddbb"
+```
+
+
+#### 6.2 Create `bridge_info.json`
+
+Create or edit `value-transfer/common/bridge_info.json` with the following content.
+
+```
+$ vi value-transfer/common/bridge_info.json
+{
+    "sender": {
+        "child": {
+            "key": "0xc544b44c1c58955af516c1f2ff17f8fd522604f1ea6b64db79e067343ed5e307"
+        },
+        "parent": {
+            "key": "0x4b07ca7412ad2bb0e62db30369b9f08a8724fb81fce4b3b1af23800233074fbf"
+        }
+    },
+    "url": {
+        "child": "http://$SCN_IP:8551",
+        "parent": "http://$EN_IP:8551"
+    },
+    "bridges": [
+        {
+            "child" : {
+                "operator": "$CHILD_OPERATOR"
+            },
+            "parent" : {
+                "operator": "$PARENT_OPERATOR"
+            }
+        }
+    ]
+}
+```
+
+Be sure to replace `EN_IP` and `SCN_IP` with the IP addresses of EN and SCN.
+Also, replace `PARENT_OPERATOR` and `CHILD_OPERATOR` with the parent and child bridge operators discovered in the previous step.
+
+#### 6.3 Deploy and register bridge contracts
+
+Deploy and register bridge contracts.
+```
+$ cd value-transfer/erc20
+$ npm install
+$ node erc20-deploy.js
+------------------------- erc20-deploy START -------------------------
+info.bridge: 0x88413F043CC07942DC1dF642FC3d3FaFb682858c
+info.token: 0xF2F70FA143CBC730aD389A2609E95Fb78D300826
+info.bridge: 0x5eF4E943AA9738B91107e8A94e3fe7b0Bd4F969f
+info.token: 0x67dB12BD7325f4053E1992b5E5114cf113894De4
+############################################################################
+Run below 3 commands in the Javascript console of all child bridge nodes (1 nodes total)
+subbridge.registerBridge("0x88413F043CC07942DC1dF642FC3d3FaFb682858c", "0x5eF4E943AA9738B91107e8A94e3fe7b0Bd4F969f")
+subbridge.subscribeBridge("0x88413F043CC07942DC1dF642FC3d3FaFb682858c", "0x5eF4E943AA9738B91107e8A94e3fe7b0Bd4F969f")
+subbridge.registerToken("0x88413F043CC07942DC1dF642FC3d3FaFb682858c", "0x5eF4E943AA9738B91107e8A94e3fe7b0Bd4F969f", "0xF2F70FA143CBC730aD389A2609E95Fb78D300826", "0x67dB12BD7325f4053E1992b5E5114cf113894De4")
+############################################################################
+------------------------- erc20-deploy END -------------------------
+```
+
+The last command will print some commands that should be run in the Javascript console of the child chain.
+SSH to the bridged SCN instance then run printed commands in the Javascript console.
+```
+$ ssh centos@
+[centos@10.1.2.3 ~]$ sudo kscn attach /var/kscnd/data/klay.ipc
+Welcome to the Klaytn JavaScript console!
+
+instance: Klaytn/v1.8.4/linux-amd64/go1.18
+ datadir: /var/kend/data
+ modules: admin:1.0 debug:1.0 eth:1.0 governance:1.0 istanbul:1.0 klay:1.0 mainbridge:1.0 net:1.0 personal:1.0 rpc:1.0 txpool:1.0 web3:1.0
+
+> subbridge.registerBridge(...)
+null
+> subbridge.subscribeBridge(...)
+null
+> subbridge.registerToken(...)
+null
+```
+
+#### 6.4 Test value transfer
+
+Now, you can finally test value transfer.
+```
+# Make sure you're in the directory value-transfer/erc20
+$ node erc20-transfer-1step.js
+------------------------- erc20-transfer-1step START -------------------------
+alice balance: 0
+requestValueTransfer..
+alice balance: 100
+------------------------- erc20-transfer-1step END -------------------------
+```
+
+**NOTE** In order to test KLAY trasnfer, you should send some KLAYs to each sender accounts (the account derived from the parent and child sender keys).
+
+### Terminate deployed resources
+
+You have deployed 2 terraform projects; one for VPC and subnet and the other for Klaytn node VMs.
+
+First, destroy Klaytn node VMs.
+
+```
+$ cd klaytn-terraform/service-chain-aws/create-vpc
+$ terraform destroy
+# below command takes you back to the project root
+$ cd ../../..
+```
+
+Then destroy VPC and subnet.
+
+```
+$ cd klaytn-terraform/service-chain-aws/create-vpc
+$ terraform destroy
+# below command takes you back to the project root
+$ cd ../../..
+```
+
+### Wrapping up
+
+Threr are more usecases, other than deploying 1 CN + 1 EN + 4 SCNs.
+The other usecases are covered by preset scripts, so you don't have go through all the steps shown above.
+All you have to do is run provided scripts, with minial interaction.
+
+Refer to [Run](#run) for more details.
 
 ## Configure
 Before running **klaytn-terraform**, you need to configure it.
@@ -193,6 +489,8 @@ alice balance: 100
 
 After you have successfully deployed and tested Klaytn ServiceChain,
 you can destroy all created resources using the provided script.
+
+**IMPORTANT** Note that this script will destroy all resources created by servicechain-deploy.
 
 ```
 $ ./4.terminate.sh
