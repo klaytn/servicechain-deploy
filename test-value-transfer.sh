@@ -9,8 +9,8 @@ BRIDGE_COUNT=$(egrep '^PARENT[0-9]+' $PROJ_PATH/inventory.bridge | wc -l)
 
 PARENT_SERVICE_TYPE=$(egrep '^PARENT0' $PROJ_PATH/inventory.bridge | sed 's/.*parent_service_type=\([[:alnum:]]*\).*/\1/' | tr -d 'd')
 CHILD_SERVICE_TYPE=$(egrep '^CHILD0' $PROJ_PATH/inventory.bridge | sed 's/.*child_service_type=\([[:alnum:]]*\).*/\1/' | tr -d 'd')
-PARENT_USERNAME=$(egrep '^PARENT0' $PROJ_PATH/inventory.bridge | sed 's/.*ansible_user=\([[:alnum:]]*\).*/\1/' | tr -d 'd')
-CHILD_USERNAME=$(egrep '^CHILD0' $PROJ_PATH/inventory.bridge | sed 's/.*ansible_user=\([[:alnum:]]*\).*/\1/' | tr -d 'd')
+PARENT_USERNAME=$(egrep '^PARENT0' $PROJ_PATH/inventory.bridge | sed 's/.*ansible_user=\([[:alnum:]-]*\).*/\1/' | tr -d 'd')
+CHILD_USERNAME=$(egrep '^CHILD0' $PROJ_PATH/inventory.bridge | sed 's/.*ansible_user=\([[:alnum:]-]*\).*/\1/' | tr -d 'd')
 
 PARENT_RPC_IP=$(jq .url.parent $PROJ_PATH/klaytn-ansible/bridge_info.json | tr -d '"' | sed 's/\:[[:digit:]]*$//' | sed 's/http\:\/\///')
 PARENT_OPERATORS=($(jq -r '.bridges[].parent.operator' $PROJ_PATH/klaytn-ansible/bridge_info.json | tr -d '[]," '))
@@ -45,8 +45,9 @@ send_klay() {
 	RPC_IP=$1
 	SERVICE_TYPE=$2
 	TO_ADDRESS=$3
-	NODEKEY=$(ssh -i ~/.ssh/servicechain-deploy-key centos@$RPC_IP "cat /var/${SERVICE_TYPE}d/data/klay/nodekey")
-	ssh -i ~/.ssh/servicechain-deploy-key -q centos@$RPC_IP "sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.importRawKey('$NODEKEY', '')\"; \
+	USER_NAME=$4
+	NODEKEY=$(ssh -i ~/.ssh/servicechain-deploy-key $USER_NAME@$RPC_IP "cat /var/${SERVICE_TYPE}d/data/klay/nodekey")
+	ssh -i ~/.ssh/servicechain-deploy-key -q $USER_NAME@$RPC_IP "sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.importRawKey('$NODEKEY', '')\"; \
 		sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.unlockAccount(personal.listAccounts[0], '', 99999999)\"; \
 		sudo $SERVICE_TYPE attach /var/${SERVICE_TYPE}d/data/klay.ipc --exec \"personal.sendValueTransfer({from: personal.listAccounts[0], to: '$TO_ADDRESS', value: klay.toPeb(1000, 'KLAY')})\""
 }
@@ -54,15 +55,18 @@ send_klay() {
 # Prompt the user to deposit some klay to parent bridge operator and parent sender
 for ((i=0;i<$BRIDGE_COUNT;i++)); do
 	## First, parent bridge operator
+	### Try using Baobab faucet
+	curl --fail --silent --location --request POST "https://api-baobab.wallet.klaytn.com/faucet/run?address=${PARENT_OPERATORS[$i]}" > /dev/null
 	while :
 	do
 		PARENT_OPERATOR_BALANCE=$(ssh -i ~/.ssh/servicechain-deploy-key $PARENT_USERNAME@$PARENT_RPC_IP "sudo $PARENT_SERVICE_TYPE attach /var/${PARENT_SERVICE_TYPE}d/data/klay.ipc --exec \"klay.getBalance('${PARENT_OPERATORS[$i]}')\"")
 		if [[ $PARENT_OPERATOR_BALANCE == "0" ]]; then
-			if [[ $PARENT_USERNAME == "ec2-user" ]]; then
+			CN_RPC_IP=$(egrep '^CN0' $PROJ_PATH/inventory.node | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' || true)
+			# If parent chain is private network, get KLAY from CN's nodekey
+			if [ -z "$CN_RPC_IP" ]; then
 				echo "Please send 10 Klay to \"${PARENT_OPERATORS[$i]}\" using Baobab faucet (https://baobab.wallet.klaytn.com/access?next=faucet)"
 			else
-				# If parent chain is private network, the gasPrice should be 0 so the operators don't need any KLAY, they can send transactions for free.
-				break
+				send_klay $CN_RPC_IP kcn $PARENT_OPERATORS[$i] $PARENT_USERNAME
 			fi
 		else
 			break
@@ -73,14 +77,16 @@ done
 ## Then, parent sender
 while :
 do
+	### Try using Baobab faucet
+	curl --fail --silent --location --request POST "https://api-baobab.wallet.klaytn.com/faucet/run?address=$PARENT_SENDER" > /dev/null
 	PARENT_SENDER_BALANCE=$(ssh -i ~/.ssh/servicechain-deploy-key $PARENT_USERNAME@$PARENT_RPC_IP "sudo $PARENT_SERVICE_TYPE attach /var/${PARENT_SERVICE_TYPE}d/data/klay.ipc --exec \"klay.getBalance('$PARENT_SENDER')\"")
 	if [[ $PARENT_SENDER_BALANCE == "0" ]]; then
-		if [[ $PARENT_USERNAME == "ec2-user" ]]; then
+		CN_RPC_IP=$(egrep '^CN0' $PROJ_PATH/inventory.node | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' || true)
+		# If parent chain is private network, get KLAY from CN's nodekey
+		if [ -z "$CN_RPC_IP" ]; then
 			echo "Please send 100 Klay to \"$PARENT_SENDER\" using Baobab faucet (https://baobab.wallet.klaytn.com/access?next=faucet)"
 		else
-			# If parent chain is priavet network, get KLAY from CN's nodekey
-			CN_RPC_IP=$(egrep '^CN0' $PROJ_PATH/inventory.node | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-			send_klay $CN_RPC_IP kcn $PARENT_SENDER
+			send_klay $CN_RPC_IP kcn $PARENT_SENDER $PARENT_USERNAME
 			continue
 		fi
 	else
@@ -101,7 +107,7 @@ echo "######################################################################"
 CHILD_SENDER_BALANCE=$(ssh -i ~/.ssh/servicechain-deploy-key $CHILD_USERNAME@$CHILD_RPC_IP "sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"klay.getBalance('$CHILD_SENDER')\"")
 if [[ $CHILD_SENDER_BALANCE == "0" ]]; then
 	SCN_RPC_IP=$(egrep '^SCN0' $PROJ_PATH/inventory.node | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-	send_klay $SCN_RPC_IP kscn $CHILD_SENDER
+	send_klay $SCN_RPC_IP kscn $CHILD_SENDER $CHILD_USERNAME
 fi
 
 # Test value transfer
@@ -123,9 +129,9 @@ CHILD_TOKEN=$(jq .contract.child.token transfer_conf.json | tr -d '"')
 ## Register bridge and token to each child node
 for ((i=0;i<$BRIDGE_COUNT;i++)); do
 	SUBBRIDGE_RPC_IP=$(egrep "CHILD$i" $PROJ_PATH/inventory.bridge | egrep -o '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-	ssh -i ~/.ssh/servicechain-deploy-key -q $CHILD_USERNAME@$SUBBRIDGE_RPC_IP "sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"subbridge.registerBridge('$CHILD_BRIDGE','$PARENT_BRIDGE')\"; \
-		sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"subbridge.subscribeBridge('$CHILD_BRIDGE', '$PARENT_BRIDGE')\"; \
-		sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"subbridge.registerToken('$CHILD_BRIDGE', '$PARENT_BRIDGE', '$CHILD_TOKEN', '$PARENT_TOKEN')\""
+	ssh -i ~/.ssh/servicechain-deploy-key -q $CHILD_USERNAME@$SUBBRIDGE_RPC_IP "sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"subbridge.registerBridge('$CHILD_BRIDGE','$PARENT_BRIDGE', 0)\" | sed '/^null$/d'; \
+		sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"subbridge.subscribeBridge('$CHILD_BRIDGE', '$PARENT_BRIDGE')\" | sed '/^null$/d'; \
+		sudo $CHILD_SERVICE_TYPE attach /var/${CHILD_SERVICE_TYPE}d/data/klay.ipc --exec \"subbridge.registerToken('$CHILD_BRIDGE', '$PARENT_BRIDGE', '$CHILD_TOKEN', '$PARENT_TOKEN')\" | sed '/^null$/d'"
 done
 
 ## Run transfer

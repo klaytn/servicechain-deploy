@@ -34,7 +34,7 @@ Using this tool without modification in production is strongly discorouged.
    - AWS AMI for Cypress EN: `baobab-clean-en-ami-<date created>`
    - AWS AMI for Baobab EN: `cypress-clean-en-ami-<date created>`
 
-   The provided script `1.run_terraform.sh` performs following tasks:
+   The provided script `1.init_nodes.sh` performs following tasks:
    - Run **klaytn-terraform** to deploy VMs in AWS
    - Fetch IPs of the deployed VMs to create the `inventory` file for **klaytn-ansible**.
 
@@ -70,13 +70,11 @@ Using this tool without modification in production is strongly discorouged.
    (e.g., bridge operators) hold enough Klays.
 
 ## Prerequisites
-1. AWS account and AWS-CLI, and subscription for CentOS AMI
+1. AWS account and AWS-CLI
 
     You need an AWS account. Also, AWS-CLI should be configured correctly in your local environment.
     Refer to AWS docs to [install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
     and [configure](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) AWS-CLI.
-    Furthermore, you need to subscribe [CentOS AMI](https://aws.amazon.com/marketplace/pp/Centosorg-CentOS-7-x8664-with-Updates-HVM/B00O7WM7QW#pdp-usage)
-    in order to create CentOS VMs.
 
 2. terraform
 
@@ -188,16 +186,16 @@ Then, create or edit `klaytn-ansible/roles/klaytn_node/inventory` with the follo
 ```
 $ vi klaytn-ansible/roles/klaytn_node/inventory
 [ServiceChainCN]
-SCN0  ansible_host=10.11.12.13  ansible_user=centos
-SCN1  ansible_host=10.11.12.14  ansible_user=centos
-SCN2  ansible_host=10.11.12.15  ansible_user=centos
-SCN3  ansible_host=10.11.12.16  ansible_user=centos
+SCN0  ansible_host=10.11.12.13  ansible_user=ec2-user
+SCN1  ansible_host=10.11.12.14  ansible_user=ec2-user
+SCN2  ansible_host=10.11.12.15  ansible_user=ec2-user
+SCN3  ansible_host=10.11.12.16  ansible_user=ec2-user
 
 [CypressCN]
-CN0  ansible_host=1.2.3.4  ansible_user=centos
+CN0  ansible_host=1.2.3.4  ansible_user=ec2-user
 
 [CypressEN]
-EN0  ansbile_host=5.6.7.8  ansible_user=centos
+EN0  ansbile_host=5.6.7.8  ansible_user=ec2-user
 
 [controller]
 builder ansible_host=localhost ansible_connection=local ansible_user=YOUR_USER
@@ -223,10 +221,10 @@ Create or edit `klaytn-ansible/roles/klaytn_bridge/inventory` with the following
 ```
 $ vi klaytn-ansible/roles/klaytn_bridge/inventory
 [ParentBridgeNode]
-PARENT0 ansible_host=1.2.3.4 ansible_user=centos
+PARENT0 ansible_host=1.2.3.4 ansible_user=ec2-user
 
 [ChildBridgeNode]
-CHILD0 ansible_host=5.6.7.8 ansible_user=centos
+CHILD0 ansible_host=5.6.7.8 ansible_user=ec2-user
 
 [controller]
 builder ansible_host=localhost ansible_connection=local ansible_user=YOUR_USER
@@ -265,8 +263,8 @@ Testing value trasfer requires the following steps.
 First, SSH to the SCN instance and connect to the Javascript console.
 
 ```
-$ ssh centos@10.11.12.13
-[centos@10.5.6.7 ~] $ sudo kscn attach /var/kscnd/data/klay.ipc
+$ ssh ec2-user@10.11.12.13
+[ec2-user@10.5.6.7 ~] $ sudo kscn attach /var/kscnd/data/klay.ipc
 Welcome to the Klaytn JavaScript console!
 
 instance: Klaytn/v1.8.4/linux-amd64/go1.18
@@ -339,8 +337,8 @@ subbridge.registerToken("0x88413F043CC07942DC1dF642FC3d3FaFb682858c", "0x5eF4E94
 The last command will print some commands that should be run in the Javascript console of the child chain.
 SSH to the bridged SCN instance then run printed commands in the Javascript console.
 ```
-$ ssh centos@
-[centos@10.1.2.3 ~]$ sudo kscn attach /var/kscnd/data/klay.ipc
+$ ssh ec2-user@10.1.2.3
+[ec2-user@10.1.2.3 ~]$ sudo kscn attach /var/kscnd/data/klay.ipc
 Welcome to the Klaytn JavaScript console!
 
 instance: Klaytn/v1.8.4/linux-amd64/go1.18
@@ -394,7 +392,7 @@ $ cd ../../..
 
 ### Wrapping up
 
-Threr are more usecases, other than deploying 1 CN + 1 EN + 4 SCNs.
+There are more usecases, other than deploying 1 CN + 1 EN + 4 SCNs.
 The other usecases are covered by preset scripts, so you don't have go through all the steps shown above.
 All you have to do is run provided scripts, with minial interaction.
 

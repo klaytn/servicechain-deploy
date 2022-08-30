@@ -67,7 +67,7 @@ check_terraform_tfvars() {
 # Create VPC
 create_vpc() {
 	# TODO: Fix typo after klaytn-terraform has been updated
-	pushd $(pwd)/klaytn-terraform/serivce-chain-aws/create_vpc
+	pushd $(pwd)/klaytn-terraform/service-chain-aws/create-vpc
 	terraform init
 	terraform apply
 	VPC_ID=$(terraform output -json | jq .vpc_id.value | tr -d '"')
@@ -104,6 +104,9 @@ aws_key_pair_name = "servicechain-deploy"
 EOF
 }
 
+if [ $# -eq 0 ]; then
+	usage
+fi
 
 target=$1
 shift

@@ -82,36 +82,30 @@ build_inventory() {
 builder ansible_host=localhost ansible_connection=local ansible_user=$USERNAME
 
 EOF
-	## Add lines like "SCN1 ansible_user=centos ansible_host=1.2.3.4" to inventory for klaytn_node role
+	## Add lines like "SCN1 ansible_user=ec2-user ansible_host=1.2.3.4" to inventory for klaytn_node role
 	echo "[CypressCN]" >> inventory.node
 	for i in "${!CN_PUBLIC_IP_LIST[@]}"; do
-		echo "CN$i ansible_user=centos ansible_host=${CN_PUBLIC_IP_LIST[i]}" >> inventory.node
+		echo "CN$i ansible_user=ec2-user ansible_host=${CN_PUBLIC_IP_LIST[i]}" >> inventory.node
 	done
 	echo "[CypressPN]" >> inventory.node
 	for i in "${!PN_PUBLIC_IP_LIST[@]}"; do
-		echo "PN$i ansible_user=centos ansible_host=${PN_PUBLIC_IP_LIST[i]}" >> inventory.node
+		echo "PN$i ansible_user=ec2-user ansible_host=${PN_PUBLIC_IP_LIST[i]}" >> inventory.node
 	done
 	echo "[CypressEN]" >> inventory.node
 	for i in "${!EN_PUBLIC_IP_LIST[@]}"; do
-		if [ "$CN_COUNT" -gt 0 ]; then
-			# This means private L1
-			echo "EN$i ansible_user=centos ansible_host=${EN_PUBLIC_IP_LIST[i]}" >> inventory.node
-		else
-			# This means Cypress or Baobab L1, so should be using AMI.
-			echo "EN$i ansible_user=ec2-user ansible_host=${EN_PUBLIC_IP_LIST[i]}" >> inventory.node
-		fi
+		echo "EN$i ansible_user=ec2-user ansible_host=${EN_PUBLIC_IP_LIST[i]}" >> inventory.node
 	done
 	echo "[ServiceChainCN]" >> inventory.node
 	for i in "${!SCN_PUBLIC_IP_LIST[@]}"; do
-		echo "SCN$i ansible_user=centos ansible_host=${SCN_PUBLIC_IP_LIST[i]}" >> inventory.node
+		echo "SCN$i ansible_user=ec2-user ansible_host=${SCN_PUBLIC_IP_LIST[i]}" >> inventory.node
 	done
 	echo "[ServiceChainPN]" >> inventory.node
 	for i in "${!SPN_PUBLIC_IP_LIST[@]}"; do
-		echo "SPN$i ansible_user=centos ansible_host=${SPN_PUBLIC_IP_LIST[i]}" >> inventory.node
+		echo "SPN$i ansible_user=ec2-user ansible_host=${SPN_PUBLIC_IP_LIST[i]}" >> inventory.node
 	done
 	echo "[ServiceChainEN]" >> inventory.node
 	for i in "${!SEN_PUBLIC_IP_LIST[@]}"; do
-		echo "SEN$i ansible_user=centos ansible_host=${SEN_PUBLIC_IP_LIST[i]}" >> inventory.node
+		echo "SEN$i ansible_user=ec2-user ansible_host=${SEN_PUBLIC_IP_LIST[i]}" >> inventory.node
 	done
 
 	## Create inventory file for klaytn_bridge role
@@ -125,17 +119,11 @@ builder ansible_host=localhost ansible_connection=local ansible_user=$USERNAME
 EOF
 		echo "[ParentBridgeNode]" >> inventory.bridge
 		for ((i=0;i<BRIDGE_COUNT;i++)); do
-			if [ "$CN_COUNT" -gt 0 ]; then
-				# This means private L1
-				echo "PARENT$i ansible_user=centos ansible_host=${EN_PUBLIC_IP_LIST[i]} parent_service_type=kend" >> inventory.bridge
-			else
-				# This means Cypress or Baobab L1, so should be using AMI.
-				echo "PARENT$i ansible_user=ec2-user ansible_host=${EN_PUBLIC_IP_LIST[i]} parent_service_type=kend" >> inventory.bridge
-			fi
+			echo "PARENT$i ansible_user=ec2-user ansible_host=${EN_PUBLIC_IP_LIST[i]} parent_service_type=kend" >> inventory.bridge
 		done
 		echo "[ChildBridgeNode]" >> inventory.bridge
 		for ((i=0;i<BRIDGE_COUNT;i++)); do
-			echo "CHILD$i ansible_user=centos ansible_host=${SEN_PUBLIC_IP_LIST[i]} child_service_type=ksend" >> inventory.bridge
+			echo "CHILD$i ansible_user=ec2-user ansible_host=${SEN_PUBLIC_IP_LIST[i]} child_service_type=ksend" >> inventory.bridge
 		done
 	## If there is no SEN, use SCN for bridge
 	elif [ "$EN_COUNT" -gt 0 ] && [ "$SCN_COUNT" -gt 0 ]; then
@@ -147,22 +135,20 @@ builder ansible_host=localhost ansible_connection=local ansible_user=$USERNAME
 EOF
 		echo "[ParentBridgeNode]" >> inventory.bridge
 		for ((i=0;i<BRIDGE_COUNT;i++)); do
-			if [ "$CN_COUNT" -gt 0 ]; then
-				# This means private L1
-				echo "PARENT$i ansible_user=centos ansible_host=${EN_PUBLIC_IP_LIST[i]} parent_service_type=kend" >> inventory.bridge
-			else
-				# This means Cypress or Baobab L1, so should be using AMI.
-				echo "PARENT$i ansible_user=ec2-user ansible_host=${EN_PUBLIC_IP_LIST[i]} parent_service_type=kend" >> inventory.bridge
-			fi
+			echo "PARENT$i ansible_user=ec2-user ansible_host=${EN_PUBLIC_IP_LIST[i]} parent_service_type=kend" >> inventory.bridge
 		done
 		echo "[ChildBridgeNode]" >> inventory.bridge
 		for ((i=0;i<BRIDGE_COUNT;i++)); do
-			echo "CHILD$i ansible_user=centos ansible_host=${SCN_PUBLIC_IP_LIST[i]} child_service_type=kscnd" >> inventory.bridge
+			echo "CHILD$i ansible_user=ec2-user ansible_host=${SCN_PUBLIC_IP_LIST[i]} child_service_type=kscnd" >> inventory.bridge
 		done
 	else
 		echo "At least one pair of EN and SCN should exist to configure bridge. Skipping..."
 	fi
 }
+
+if [ $# -eq 0 ]; then
+	usage
+fi
 
 target=$1
 shift
