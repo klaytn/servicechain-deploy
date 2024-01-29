@@ -1,8 +1,3 @@
-# Branch name will be changed
-
-We will change the `master` branch to `main` at Dec 15, 2022.
-After change branch policy, please check your local or forked repository settings.
-
 # ServiceChain deploy tool
 ServiceChain deploy tool provides easier way to deploy ServiceChain on Klaytn.
 The ServiceChain deployed by this tool follows the architecture explained in the [Klaytn Docs](https://docs.klaytn.com/node/service-chain/getting-started).
